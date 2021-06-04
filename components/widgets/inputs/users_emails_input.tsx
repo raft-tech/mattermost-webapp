@@ -3,10 +3,12 @@
 
 import PropTypes from 'prop-types';
 import React from 'react';
-import {FormattedMessage} from 'react-intl';
-import AsyncSelect from 'react-select/async';
-import {components} from 'react-select';
 import classNames from 'classnames';
+import {FormattedMessage} from 'react-intl';
+import {ActionMeta, components, ValueType} from 'react-select';
+import {Props as AsyncSelectProps} from 'react-select/async';
+
+import {AppSelectOption} from 'mattermost-redux/types/apps';
 
 import {isEmail} from 'mattermost-redux/utils/helpers';
 
@@ -25,32 +27,46 @@ import {isGuest} from 'utils/utils';
 
 import './users_emails_input.scss';
 
-type onChangeInput = {id:string;
-  value:string}
-type Props = {
-  placeholder: string;
-  ariaLabel: string;
-  usersLoader: (input:string, customCallback:(options:object) => void) => void;
-  onChange: () => string;
-  showError: boolean;
-  errorMessageId: string;
-  errorMessageDefault: string;
-  errorMessageValues: object;
-  value: object[]|string[];
-  onInputChange: (input:string) => void;
-  inputValue: string;
-  noMatchMessageId: string;
-  noMatchMessageDefault: string;
-  validAddressMessageId: string;
-  validAddressMessageDefault: string;
-  loadingMessageId: string;
-  loadingMessageDefault: string;
-  emailInvitationsEnabled: boolean;
-  extraErrorText: any;
+const AsyncSelect = require('react-select/lib/Async').default as React.ElementType<AsyncSelectProps<AppSelectOption>>; // eslint-disable-line global-require
+
+type OnChangeInput = {
+    id: string;
+    value: string;
 }
 
-export default class UsersEmailsInput extends React.PureComponent {
-    selectRef:React.RefObject<HTMLSelectElement>
+type UserData = {
+    id: string;
+    value: string;
+    username: string;
+    last_picture_update: number | undefined;
+    is_bot: boolean;
+}
+
+
+type Props = {
+    placeholder: string;
+    ariaLabel: string;
+    usersLoader: (input: string, customCallback: (options: object) => void) => Promise<UserData>;
+    onChange: (input: Array<(OnChangeInput| string)>) => string;
+    showError: boolean;
+    errorMessageId: string;
+    errorMessageDefault: string;
+    errorMessageValues: object;
+    value: object[]|string[];
+    onInputChange: (input:string) => void;
+    inputValue: string;
+    noMatchMessageId: string;
+    noMatchMessageDefault: string;
+    validAddressMessageId: string;
+    validAddressMessageDefault: string;
+    loadingMessageId: string;
+    loadingMessageDefault: string;
+    emailInvitationsEnabled: boolean;
+    extraErrorText: any;
+}
+
+export default class UsersEmailsInput extends React.PureComponent<Props> {
+    selectRef: React.RefObject<HTMLSelectElement>
     static propTypes = {
         placeholder: PropTypes.string,
         ariaLabel: PropTypes.string.isRequired,
@@ -83,7 +99,7 @@ export default class UsersEmailsInput extends React.PureComponent {
         showError: false,
     };
 
-    constructor(props) {
+    constructor(props: Props) {
         super(props);
         this.selectRef = React.createRef();
         this.state = {
@@ -91,7 +107,7 @@ export default class UsersEmailsInput extends React.PureComponent {
         };
     }
 
-    renderUserName = (user) => {
+    renderUserName = (user: UserData): JSX.Element => {
         const parts = getLongDisplayNameParts(user);
         let fullName = null;
         if (parts.fullName) {
@@ -111,7 +127,7 @@ export default class UsersEmailsInput extends React.PureComponent {
         );
     }
 
-    loadingMessage = () => {
+    loadingMessage = (): JSX.Element => {
         const text = (
             <FormattedMessage
                 id={this.props.loadingMessageId}
@@ -122,11 +138,11 @@ export default class UsersEmailsInput extends React.PureComponent {
         return (<LoadingSpinner text={text}/>);
     }
 
-    getOptionValue = (user) => {
+    getOptionValue = (user: UserData): string|number => {
         return user.id || user.value;
     }
 
-    formatOptionLabel = (user, options) => {
+    formatOptionLabel = (user: UserData, options):JSX.Element => {
         const profileImg = imageURLForUser(user.id, user.last_picture_update);
         let guestBadge = null;
         let botBadge = null;
@@ -180,13 +196,13 @@ export default class UsersEmailsInput extends React.PureComponent {
         );
     }
 
-    onChange = (value) => {
+    onChange = (value: Array<OnChangeInput>): void => {
         if (this.props.onChange) {
             this.props.onChange(value.map((v) => {
-                if (v.id) {
+                if (v?.id) {
                     return v;
                 }
-                return v.value;
+                return v?.value;
             }));
         }
     }
@@ -278,9 +294,7 @@ export default class UsersEmailsInput extends React.PureComponent {
             callback(options);
         };
         const result = this.props.usersLoader(this.props.inputValue, customCallback);
-        if (result && result.then) {
-            result.then(customCallback);
-        }
+        result?.then(customCallback);
     }
 
     showAddEmail = (input, values, options) => {
@@ -295,7 +309,7 @@ export default class UsersEmailsInput extends React.PureComponent {
         this.selectRef.current.handleInputChange(this.props.inputValue, {action: 'input-blur'});
     }
 
-    render() {
+    public render(): JSX.Element {
         const values = this.props.value.map((v) => {
             if (v.id) {
                 return v;
@@ -307,7 +321,7 @@ export default class UsersEmailsInput extends React.PureComponent {
                 <AsyncSelect
                     ref={this.selectRef}
                     styles={this.customStyles}
-                    onChange={this.onChange}
+                    onChange={(value) => this.onChange([value])}
                     loadOptions={this.optionsLoader}
                     isValidNewOption={this.showAddEmail}
                     isMulti={true}
@@ -343,8 +357,8 @@ export default class UsersEmailsInput extends React.PureComponent {
                             values={this.props.errorMessageValues || null}
                             disableLinks={true}
                         >
-                            {(message) => (
-                                <components.NoOptionsMessage>
+                            {(message: string) => (
+                                <components.NoOptionsMessage >
                                     {message}
                                 </components.NoOptionsMessage>
                             )}
